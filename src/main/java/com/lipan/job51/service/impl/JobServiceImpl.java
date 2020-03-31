@@ -23,7 +23,7 @@ public class JobServiceImpl implements JobService {
 
 
     @Override
-    @Transactional(rollbackFor = {})
+    @Transactional
     public void save(Job job) {
 
         Job param = new Job();

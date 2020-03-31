@@ -3,12 +3,15 @@ package com.lipan.job51.task;
 
 import com.lipan.job51.entity.Job;
 import com.lipan.job51.util.SalaryUtils;
+
 import org.jsoup.Jsoup;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
+import us.codecraft.webmagic.pipeline.Pipeline;
 import us.codecraft.webmagic.processor.PageProcessor;
 import us.codecraft.webmagic.scheduler.BloomFilterDuplicateRemover;
 import us.codecraft.webmagic.scheduler.QueueScheduler;
@@ -24,6 +27,9 @@ import java.util.List;
  */
 @Component
 public class JobProcessor implements PageProcessor {
+
+    @Autowired
+    private Pipeline pipeline;
 
     @Override
     public void process(Page page) {
@@ -52,14 +58,19 @@ public class JobProcessor implements PageProcessor {
         job.setSalaryMin(salary[0]);
         job.setSalaryMax(salary[1]);
 
-        String time = Jsoup.parse(html.css("div.t1 span").regex(".*发布").toString()).text();
-        job.setTime(time.substring(0,time.length()-2));
+        String jobMsg = html.css("p.msg").nodes().get(0).toString();
+        String time = jobMsg.substring(jobMsg.lastIndexOf(";")+1,jobMsg.length()-7);
+        job.setTime(time);
+
+        page.putField("job",job);
     }
 
     private void getJobUrls(List<Selectable> jobDivList,Page page) {
         for (Selectable jobDiv : jobDivList) {
             String jobUrl = jobDiv.links().toString();
-            page.addTargetRequest(jobUrl);
+            if(null != jobUrl){
+                page.addTargetRequest(jobUrl);
+            }
         }
         String nextPage = page.getHtml().css("div.p_in li.bk").nodes().get(1).links().toString();
         page.addTargetRequest(nextPage);
@@ -84,6 +95,7 @@ public class JobProcessor implements PageProcessor {
                 .addUrl(url)
                 .setScheduler(new QueueScheduler().setDuplicateRemover(new BloomFilterDuplicateRemover(100000)))
                 .thread(10)
+                .addPipeline(pipeline)
                 .run();
     }
 }
